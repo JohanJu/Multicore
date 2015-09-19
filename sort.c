@@ -4,11 +4,14 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/times.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <float.h>
 #define N (2)
 #define PARALLEL
+#define BAL
 
 static double sec(void)
 {
@@ -38,6 +41,7 @@ typedef struct sarg {
 void* work(void* arg){
 
 	printf("work %zu\n",((sarg*)arg)->n);
+	qsort(((sarg*)arg)->base, ((sarg*)arg)->n, sizeof(double), cmp);
 	return NULL;
 }
 
@@ -48,10 +52,12 @@ void par_sort(
 	int		(*cmp)(const void*, const void*)) // Behaves like strcmp
 {
 
-	
-printf("n %zu\n",n);
-
+#ifdef BAL
+	double p = RAND_MAX/2;
+#else
 	double p = ((double*)base)[0];
+#endif
+	
 	double t;
 	double* b1;
 	double* b2;
@@ -59,7 +65,6 @@ printf("n %zu\n",n);
 	b2 = malloc(n * sizeof(double));
 	size_t n1 = 0;
 	size_t n2 = 0;
-	printf("first %1.0f\n",p);
 	for (int i = 0; i < n; ++i)
 	{
 		t = ((double*)base)[i];
@@ -73,20 +78,21 @@ printf("n %zu\n",n);
 	}
 	sarg s1 = {b1,n1};
 	sarg s2 = {b2,n2};
+
 	pthread_t pt[N];
 	if (pthread_create(&pt[0], NULL, work, &s1) != 0)
-		printf("err c\n");
+		printf("err create\n");
 	if (pthread_create(&pt[1], NULL, work, &s2) != 0)
-		printf("err c\n");
+		printf("err create\n");
 	for (int i = 0; i < N; ++i)
 	{
 		if(pthread_join(pt[i],NULL)!=0)
-			printf("err j\n");
+			printf("err join\n");
 	}
-
+	memcpy(base,b2,n2*sizeof(double));
+	memcpy(&((double*)base)[n2],b1,n1*sizeof(double));
 	free(b1);
 	free(b2);
-
 }
 
 
@@ -117,7 +123,11 @@ int main(int ac, char** av)
 	end = sec();
 
 	printf("%1.2f s\n", (end - start));
-	printf("%1.2f %1.2f %1.2f %1.2f\n", a[0],a[1],a[2],a[3]);
+	for (i = 1; i < n; ++i)
+	{
+		if(a[i-1]>a[i])
+			printf("err result\n");
+	}
 
 	free(a);
 
