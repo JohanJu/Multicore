@@ -30,8 +30,14 @@ static int cmp(const void* ap, const void* bp)
 	}
 }
 
+typedef struct sarg {
+	void*		base;	// Array to sort.
+	size_t		n;	// Number of elements in base.
+} sarg;
+
 void* work(void* arg){
-	printf("hello \n");
+
+	printf("work %zu\n",((sarg*)arg)->n);
 	return NULL;
 }
 
@@ -43,45 +49,43 @@ void par_sort(
 {
 
 	
+printf("n %zu\n",n);
 
-
-	// double p = ((double*)base)[0];
-	// double t;
-	// double* b1;
-	// double* b2;
-	// b1 = malloc(n * sizeof(double));
-	// b2 = malloc(n * sizeof(double));
-	// size_t n1 = 0;
-	// size_t n2 = 0;
-	// printf("err0 %1.0f\n",p);
-	// for (int i = 0; i < n; ++i)
-	// {
-	// 	t = ((double*)base)[i];
-	// 	printf("err2 %1.0f\n",t);
-	// 	if(t>p){
-	// 		b1[n1]=t;
-	// 		n1++;
-	// 	}else{
-	// 		b2[n2]=t;
-	// 		n2++;
-	// 	}
-	// }
-	// printf("%1.0f %1.0f\n",b1[0],b2[0]);	
-	// printf("%p %zu %zu %p\n",b1,n1,sizeof(double),cmp);
+	double p = ((double*)base)[0];
+	double t;
+	double* b1;
+	double* b2;
+	b1 = malloc(n * sizeof(double));
+	b2 = malloc(n * sizeof(double));
+	size_t n1 = 0;
+	size_t n2 = 0;
+	printf("first %1.0f\n",p);
+	for (int i = 0; i < n; ++i)
+	{
+		t = ((double*)base)[i];
+		if(t>p){
+			b1[n1]=t;
+			n1++;
+		}else{
+			b2[n2]=t;
+			n2++;
+		}
+	}
+	sarg s1 = {b1,n1};
+	sarg s2 = {b2,n2};
 	pthread_t pt[N];
-	if (pthread_create(&pt[0], NULL, work, NULL) != 0)
+	if (pthread_create(&pt[0], NULL, work, &s1) != 0)
 		printf("err c\n");
-	if (pthread_create(&pt[1], NULL, work, NULL) != 0)
+	if (pthread_create(&pt[1], NULL, work, &s2) != 0)
 		printf("err c\n");
-	// b2,n2,sizeof(double),cmp
-	// for (int i = 0; i < N; ++i)
-	// {
-	// 	printf("err2 %d\n",i);
-	// 	if(pthread_join(pt[i],NULL)!=0)
-	// 		printf("err j\n");
-	// }
-	// free(b1);
-	// free(b2);
+	for (int i = 0; i < N; ++i)
+	{
+		if(pthread_join(pt[i],NULL)!=0)
+			printf("err j\n");
+	}
+
+	free(b1);
+	free(b2);
 
 }
 
@@ -109,12 +113,6 @@ int main(int ac, char** av)
 #else
 	qsort(a, n, sizeof a[0], cmp);
 #endif
-
-	// for (int i = 1; i < 1000000000; ++i)
-	// {
-	// 	int d = 0;
-	// 	d=19%i+i/31;
-	// }
 
 	end = sec();
 
