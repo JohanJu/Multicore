@@ -1,5 +1,3 @@
-// Lab in EDAN25 http://cs.lth.se/edan25/labs/
-
 #include <assert.h>
 #include <limits.h>
 #include <pthread.h>
@@ -9,18 +7,15 @@
 #include <sys/times.h>
 #include <sys/time.h>
 #include <unistd.h>
+#define N (2)
+#define PARALLEL
 
 static double sec(void)
 {
-	return clock()/(double)CLOCKS_PER_SEC;
-}
-
-void par_sort(
-	void*		base,	// Array to sort.
-	size_t		n,	// Number of elements in base.
-	size_t		s,	// Size of each element.
-	int		(*cmp)(const void*, const void*)) // Behaves like strcmp
-{
+	struct timeval t; 
+	gettimeofday(&t,NULL);
+	return t.tv_sec+t.tv_usec/1000000.0;
+	// return clock()/(double)CLOCKS_PER_SEC;
 }
 
 static int cmp(const void* ap, const void* bp)
@@ -34,6 +29,62 @@ static int cmp(const void* ap, const void* bp)
 		return 0;
 	}
 }
+
+void* work(void* arg){
+	printf("hello \n");
+	return NULL;
+}
+
+void par_sort(
+	void*		base,	// Array to sort.
+	size_t		n,	// Number of elements in base.
+	size_t		s,	// Size of each element.
+	int		(*cmp)(const void*, const void*)) // Behaves like strcmp
+{
+
+	
+
+
+	// double p = ((double*)base)[0];
+	// double t;
+	// double* b1;
+	// double* b2;
+	// b1 = malloc(n * sizeof(double));
+	// b2 = malloc(n * sizeof(double));
+	// size_t n1 = 0;
+	// size_t n2 = 0;
+	// printf("err0 %1.0f\n",p);
+	// for (int i = 0; i < n; ++i)
+	// {
+	// 	t = ((double*)base)[i];
+	// 	printf("err2 %1.0f\n",t);
+	// 	if(t>p){
+	// 		b1[n1]=t;
+	// 		n1++;
+	// 	}else{
+	// 		b2[n2]=t;
+	// 		n2++;
+	// 	}
+	// }
+	// printf("%1.0f %1.0f\n",b1[0],b2[0]);	
+	// printf("%p %zu %zu %p\n",b1,n1,sizeof(double),cmp);
+	pthread_t pt[N];
+	if (pthread_create(&pt[0], NULL, work, NULL) != 0)
+		printf("err c\n");
+	if (pthread_create(&pt[1], NULL, work, NULL) != 0)
+		printf("err c\n");
+	// b2,n2,sizeof(double),cmp
+	// for (int i = 0; i < N; ++i)
+	// {
+	// 	printf("err2 %d\n",i);
+	// 	if(pthread_join(pt[i],NULL)!=0)
+	// 		printf("err j\n");
+	// }
+	// free(b1);
+	// free(b2);
+
+}
+
 
 int main(int ac, char** av)
 {
