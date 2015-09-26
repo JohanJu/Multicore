@@ -106,47 +106,82 @@ void setbit(cfg_t* cfg, size_t v, set_type_t type, size_t index){
 list_t*			worklist[NT];
 pthread_mutex_t mutexWork[NT];
 pthread_mutex_t mutexEnd;
-int end = NT;
+int end = 1;
 
 void* lthread(void* arg) {
 	vertex_t*	u;
+	vertex_t*	us;
 	vertex_t*	v;
 	set_t*		prev;
 	size_t		i;
+	size_t		nbr;
 	list_t*		p;
 	list_t*		h;
 
-	if ((size_t)arg == 0) {
+	nbr = (size_t)arg;
 
-		while ((u = remove_first(&worklist[0])) != NULL) {
+	int done = 1;
+	while (done) {
+
+		pthread_mutex_lock(&mutexWork[nbr]);
+		u = remove_first(&worklist[nbr]);
+		pthread_mutex_unlock(&mutexWork[nbr]);
+
+		while (1) {
+			if(u  == NULL){
+				pthread_mutex_lock(&mutexEnd);
+				end&=~(1<<nbr);
+				pthread_mutex_unlock(&mutexEnd);
+				break;
+			}else{
+				pthread_mutex_lock(&mutexEnd);
+				end|=(1<<nbr);
+				pthread_mutex_unlock(&mutexEnd);
+			}
 			u->listed = false;
 
 			reset(u->set[OUT]);
 
-			for (i = 0; i < u->nsucc; ++i)
-				or (u->set[OUT], u->set[OUT], u->succ[i]->set[IN]);
+			for (i = 0; i < u->nsucc; ++i) {
+				us = u->succ[i];
+				pthread_mutex_lock(&(us->mutexIn));
+				or (u->set[OUT], u->set[OUT], us->set[IN]);
+				pthread_mutex_unlock(&(us->mutexIn));
+			}
 
 			prev = u->prev;
 			u->prev = u->set[IN];
 			u->set[IN] = prev;
-
-			/* in our case liveness information... */
+			bool eq;
+			pthread_mutex_lock(&(u->mutexIn));
 			propagate(u->set[IN], u->set[OUT], u->set[DEF], u->set[USE]);
+			eq = equal(u->prev, u->set[IN]);
+			pthread_mutex_unlock(&(u->mutexIn));
 
-			if (u->pred != NULL && !equal(u->prev, u->set[IN])) {
+			if (u->pred != NULL && !eq) {
 				p = h = u->pred;
 				do {
 					v = p->data;
+					size_t addr = ((size_t)v & (3 << 7)) >> 7;
+					
 					if (!v->listed) {
 						v->listed = true;
-						insert_last(&worklist[0], v);
+						pthread_mutex_lock(&mutexWork[addr]);
+						insert_last(&worklist[addr], v);
+						pthread_mutex_unlock(&mutexWork[addr]);
 					}
-
+					
 					p = p->succ;
 
 				} while (p != h);
 			}
+			pthread_mutex_lock(&mutexWork[nbr]);
+			u = remove_first(&worklist[nbr]);
+			pthread_mutex_unlock(&mutexWork[nbr]);
 		}
+		pthread_mutex_lock(&mutexEnd);
+		done = end;
+		pthread_mutex_unlock(&mutexEnd);
 	}
 	return NULL;
 }
@@ -165,9 +200,9 @@ void liveness(cfg_t* cfg){
 
 	for (i = 0; i < cfg->nvertex; ++i) {
 		u = &cfg->vertex[i];
-		// size_t addr = ((size_t)u&(3<<7))>>7;
+		size_t addr = ((size_t)u&(3<<7))>>7;
 		pthread_mutex_init(&(u->mutexIn), NULL);
-		insert_last(&worklist[0], u);
+		insert_last(&worklist[addr], u);
 		u->listed = true;
 	}
 
