@@ -11,7 +11,7 @@
 #include <float.h>
 #define N (2)
 #define PARALLEL
-#define BAL
+#define BAL 32
 
 static double sec(void)
 {
@@ -39,7 +39,6 @@ typedef struct sarg {
 } sarg;
 
 void* work(void* arg){
-
 	printf("work %zu\n",((sarg*)arg)->n);
 	qsort(((sarg*)arg)->base, ((sarg*)arg)->n, sizeof(double), cmp);
 	return NULL;
@@ -53,7 +52,13 @@ void par_sort(
 {
 
 #ifdef BAL
-	double p = RAND_MAX/2;
+	double p = 0;
+	for (int i = 0; i < BAL; ++i)
+	{
+		p+=((double*)base)[(i*n)/BAL];
+	}
+	p/=BAL;
+
 #else
 	double p = ((double*)base)[0];
 #endif
