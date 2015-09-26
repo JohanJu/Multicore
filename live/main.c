@@ -92,7 +92,7 @@ int main(int argc, char** argv)
 	size_t		max_succ;
 	cfg_t*		cfg;
 	bool		print;
-	int		seed = 0;
+	int		seed = 1;
 
 	progname	= argv[0];
 
@@ -136,8 +136,12 @@ int main(int argc, char** argv)
 
 	printf("T = %8.4lf s\n\n", end-begin);
 
+	FILE*		fp;
+	const char*	name = "new.txt";
+	fp = fopen(name, "w");
+
 	if (print)
-		print_sets(cfg, stdout);
+		print_sets(cfg, fp);
 
 	free_cfg(cfg);
 	return 0;
