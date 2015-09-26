@@ -8,6 +8,7 @@
 #include "error.h"
 #include "list.h"
 #include "set.h"
+#define NT (4)
 
 typedef struct vertex_t	vertex_t;
 typedef struct task_t	task_t;
@@ -28,13 +29,15 @@ struct vertex_t {
 	vertex_t**		succ;		/* successor vertices 		*/
 	list_t*			pred;		/* predecessor vertices		*/
 	bool			listed;		/* on worklist			*/
+	bool 			inUse;
+	pthread_mutex_t mutexIn;	
+
 };
 
 static void clean_vertex(vertex_t* v);
 static void init_vertex(vertex_t* v, size_t index, size_t nsymbol, size_t max_succ);
 
-cfg_t* new_cfg(size_t nvertex, size_t nsymbol, size_t max_succ)
-{
+cfg_t* new_cfg(size_t nvertex, size_t nsymbol, size_t max_succ){
 	size_t		i;
 	cfg_t*		cfg;
 
@@ -52,48 +55,39 @@ cfg_t* new_cfg(size_t nvertex, size_t nsymbol, size_t max_succ)
 	for (i = 0; i < nvertex; i += 1)
 		init_vertex(&cfg->vertex[i], i, nsymbol, max_succ);
 
-	return cfg;
-}
+	return cfg;}
 
-static void clean_vertex(vertex_t* v)
-{
+static void clean_vertex(vertex_t* v){
 	int		i;
 
 	for (i = 0; i < NSETS; i += 1)
 		free_set(v->set[i]);
 	free_set(v->prev);
 	free(v->succ);
-	free_list(&v->pred);
-}
+	free_list(&v->pred);}
 
-static void init_vertex(vertex_t* v, size_t index, size_t nsymbol, size_t max_succ)
-{
+static void init_vertex(vertex_t* v, size_t index, size_t nsymbol, size_t max_succ){
 	int		i;
 
 	v->index	= index;
 	v->succ		= calloc(max_succ, sizeof(vertex_t*));
-
 	if (v->succ == NULL)
 		error("out of memory");
 	
 	for (i = 0; i < NSETS; i += 1)
 		v->set[i] = new_set(nsymbol);
 
-	v->prev = new_set(nsymbol);
-}
+	v->prev = new_set(nsymbol);}
 
-void free_cfg(cfg_t* cfg)
-{
+void free_cfg(cfg_t* cfg){
 	size_t		i;
 
 	for (i = 0; i < cfg->nvertex; i += 1)
 		clean_vertex(&cfg->vertex[i]);
 	free(cfg->vertex);
-	free(cfg);
-}
+	free(cfg);}
 
-void connect(cfg_t* cfg, size_t pred, size_t succ)
-{
+void connect(cfg_t* cfg, size_t pred, size_t succ){
 	vertex_t*	u;
 	vertex_t*	v;
 
@@ -101,40 +95,56 @@ void connect(cfg_t* cfg, size_t pred, size_t succ)
 	v = &cfg->vertex[succ];
 
 	u->succ[u->nsucc++ ] = v;
-	insert_last(&v->pred, u);
+	insert_last(&v->pred, u);}
+
+bool testbit(cfg_t* cfg, size_t v, set_type_t type, size_t index){
+	return test(cfg->vertex[v].set[type], index);}
+
+void setbit(cfg_t* cfg, size_t v, set_type_t type, size_t index){
+	set(cfg->vertex[v].set[type], index);}
+
+list_t*			worklist[NT];
+pthread_mutex_t mutexWork[NT];
+pthread_mutex_t mutexEnd;
+int end = NT;
+
+void* lthread(void* arg) {
+	// printf("Hello \n");
+	return NULL;
 }
 
-bool testbit(cfg_t* cfg, size_t v, set_type_t type, size_t index)
-{
-	return test(cfg->vertex[v].set[type], index);
-}
-
-void setbit(cfg_t* cfg, size_t v, set_type_t type, size_t index)
-{
-	set(cfg->vertex[v].set[type], index);
-}
-
-void liveness(cfg_t* cfg)
-{
+void liveness(cfg_t* cfg){
 	vertex_t*	u;
 	vertex_t*	v;
 	set_t*		prev;
 	size_t		i;
 	size_t		j;
-	list_t*		worklist;
 	list_t*		p;
 	list_t*		h;
+	pthread_t	thread[NT];
 
-	worklist = NULL;
+	for (i = 0; i < NT; ++i) {
+		worklist[i] = NULL;
+		pthread_mutex_init(&mutexWork[i], NULL);
+	}
 
 	for (i = 0; i < cfg->nvertex; ++i) {
 		u = &cfg->vertex[i];
-
-		insert_last(&worklist, u);
+		size_t addr = ((size_t)u&(3<<7))>>7;
+		// printf("%zu \n", addr);
+		pthread_mutex_init(&(u->mutexIn), NULL);
+		insert_last(&worklist[0], u);
 		u->listed = true;
 	}
 
-	while ((u = remove_first(&worklist)) != NULL) {
+	for (i = 0; i < NT; ++i) {
+		pthread_create(&thread[i], NULL, lthread, NULL);
+	}
+	for (i = 0; i < NT; ++i) {
+		pthread_join(thread[i], NULL);
+	}
+
+	while ((u = remove_first(&worklist[0])) != NULL) {
 		u->listed = false;
 
 		reset(u->set[OUT]);
@@ -155,7 +165,7 @@ void liveness(cfg_t* cfg)
 				v = p->data;
 				if (!v->listed) {
 					v->listed = true;
-					insert_last(&worklist, v);
+					insert_last(&worklist[0], v);
 				}
 
 				p = p->succ;
@@ -165,8 +175,7 @@ void liveness(cfg_t* cfg)
 	}
 }
 
-void print_sets(cfg_t* cfg, FILE *fp)
-{
+void print_sets(cfg_t* cfg, FILE *fp){
 	size_t		i;
 	vertex_t*	u;
 
