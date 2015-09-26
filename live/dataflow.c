@@ -109,19 +109,54 @@ pthread_mutex_t mutexEnd;
 int end = NT;
 
 void* lthread(void* arg) {
-	// printf("Hello \n");
+	vertex_t*	u;
+	vertex_t*	v;
+	set_t*		prev;
+	size_t		i;
+	list_t*		p;
+	list_t*		h;
+
+	if ((size_t)arg == 0) {
+
+		while ((u = remove_first(&worklist[0])) != NULL) {
+			u->listed = false;
+
+			reset(u->set[OUT]);
+
+			for (i = 0; i < u->nsucc; ++i)
+				or (u->set[OUT], u->set[OUT], u->succ[i]->set[IN]);
+
+			prev = u->prev;
+			u->prev = u->set[IN];
+			u->set[IN] = prev;
+
+			/* in our case liveness information... */
+			propagate(u->set[IN], u->set[OUT], u->set[DEF], u->set[USE]);
+
+			if (u->pred != NULL && !equal(u->prev, u->set[IN])) {
+				p = h = u->pred;
+				do {
+					v = p->data;
+					if (!v->listed) {
+						v->listed = true;
+						insert_last(&worklist[0], v);
+					}
+
+					p = p->succ;
+
+				} while (p != h);
+			}
+		}
+	}
 	return NULL;
 }
 
 void liveness(cfg_t* cfg){
 	vertex_t*	u;
-	vertex_t*	v;
-	set_t*		prev;
 	size_t		i;
-	size_t		j;
-	list_t*		p;
-	list_t*		h;
 	pthread_t	thread[NT];
+
+	pthread_mutex_init(&mutexEnd, NULL);
 
 	for (i = 0; i < NT; ++i) {
 		worklist[i] = NULL;
@@ -130,49 +165,20 @@ void liveness(cfg_t* cfg){
 
 	for (i = 0; i < cfg->nvertex; ++i) {
 		u = &cfg->vertex[i];
-		size_t addr = ((size_t)u&(3<<7))>>7;
-		// printf("%zu \n", addr);
+		// size_t addr = ((size_t)u&(3<<7))>>7;
 		pthread_mutex_init(&(u->mutexIn), NULL);
 		insert_last(&worklist[0], u);
 		u->listed = true;
 	}
 
 	for (i = 0; i < NT; ++i) {
-		pthread_create(&thread[i], NULL, lthread, NULL);
+		pthread_create(&thread[i], NULL, lthread, (void*)i);
 	}
 	for (i = 0; i < NT; ++i) {
 		pthread_join(thread[i], NULL);
 	}
 
-	while ((u = remove_first(&worklist[0])) != NULL) {
-		u->listed = false;
-
-		reset(u->set[OUT]);
-
-		for (j = 0; j < u->nsucc; ++j)
-			or(u->set[OUT], u->set[OUT], u->succ[j]->set[IN]);
-
-		prev = u->prev;
-		u->prev = u->set[IN];
-		u->set[IN] = prev;
-
-		/* in our case liveness information... */
-		propagate(u->set[IN], u->set[OUT], u->set[DEF], u->set[USE]);
-
-		if (u->pred != NULL && !equal(u->prev, u->set[IN])) {
-			p = h = u->pred;
-			do {
-				v = p->data;
-				if (!v->listed) {
-					v->listed = true;
-					insert_last(&worklist[0], v);
-				}
-
-				p = p->succ;
-
-			} while (p != h);
-		}
-	}
+	
 }
 
 void print_sets(cfg_t* cfg, FILE *fp){
