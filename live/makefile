@@ -1,6 +1,6 @@
 CC		= gcc
 
-CFLAGS		= -O3 -Wall -pedantic -std=c99
+CFLAGS		= -O3 -Wall -pedantic -std=c99 
 
 OBJS		= main.o list.o error.o random.o set.o dataflow.o
 
@@ -8,18 +8,18 @@ OUT		= live
 
 LDFLAGS		= -lpthread
 
-S=1000
-V=1000
+S=100000
+V=100000
 U=4
 A=1000
 T=4
-P=1
+P=0
 
 all: $(OBJS)	
 	$(CC) $(CFLAGS) $(OBJS) $(LDFLAGS) -o $(OUT)
 	# valgrind --tool=helgrind ./$(OUT) $(S) $(V) $(U) $(A) $(T) $(P) $(L)
 	./$(OUT) $(S) $(V) $(U) $(A) $(T) $(P)
-	diff -q -s new.txt old.txt
+	# diff -q -s new.txt old.txt
 	rm -f $(OBJS) cfg.dot
 
 clean:
