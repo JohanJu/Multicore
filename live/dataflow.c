@@ -1,9 +1,10 @@
-#include <stdbool.h>
+// #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
 #include <pthread.h>
+#include <altivec.h>
 #include "dataflow.h"
 #include "error.h"
 #include "list.h"
@@ -127,21 +128,17 @@ void* lthread(void* arg) {
 		u = remove_first(&worklist[nbr]);
 		pthread_mutex_unlock(&mutexWork[nbr]);
 
-		while (1) {
-			if(u  == NULL){
-				break;
-			}else{
-				pthread_mutex_lock(&mutexWork[nbr]);
-				u->listed = false;
-				pthread_mutex_unlock(&mutexWork[nbr]);
-			}
+		while (u  != NULL) {
+			pthread_mutex_lock(&mutexWork[nbr]);
+			u->listed = false;
+			pthread_mutex_unlock(&mutexWork[nbr]);
 
 			reset(u->set[OUT]);
 
 			for (i = 0; i < u->nsucc; ++i) {
 				us = u->succ[i];
 				pthread_mutex_lock(&(us->mutexIn));
-				or (u->set[OUT], u->set[OUT], us->set[IN]);
+				or (u->set[OUT],u->set[OUT], us->set[IN]);
 				pthread_mutex_unlock(&(us->mutexIn));
 			}
 			pthread_mutex_lock(&(u->mutexIn));
@@ -197,14 +194,17 @@ void liveness(cfg_t* cfg){
 		pthread_mutex_init(&mutexWork[i], NULL);
 	}
 
-	end = cfg->nvertex;
-
+	
+	end = 0;
 	for (i = 0; i < cfg->nvertex; ++i) {
 		u = &cfg->vertex[i];
-		size_t addr = ((size_t)u&(3<<7))>>7;
+		if (u->nsucc == 0) {
+			size_t addr = ((size_t)u & (3 << 7)) >> 7;
+			insert_last(&worklist[addr], u);
+			u->listed = true;
+			end++;
+		}
 		pthread_mutex_init(&(u->mutexIn), NULL);
-		insert_last(&worklist[addr], u);
-		u->listed = true;
 	}
 
 	for (i = 0; i < NT; ++i) {

@@ -1,12 +1,12 @@
 CC		= gcc
 
-CFLAGS		= -O3 -Wall -pedantic -std=c99 
+CFLAGS		= -O3 -maltivec -Wall -pedantic -std=c99 -m64
 
 OBJS		= main.o list.o error.o random.o set.o dataflow.o
 
 OUT		= live
 
-LDFLAGS		= -lpthread
+LDFLAGS		= -pthread
 
 S=100000
 V=100000
